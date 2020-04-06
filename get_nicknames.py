@@ -17,7 +17,7 @@ gamesPlayed = defaultdict(int)
 for game in games:
     players = game['players']
     for color in 'white', 'black':
-        gamesPlayed[players[color]['user']['name'].encode("ascii")] += 1
+        gamesPlayed[players[color]['user']['name']] += 1
 
 print("Filtering by number of games...")
 names = sorted(map(lambda (name, games): name, filter(lambda (name, games): games >= minimumGames, gamesPlayed.items())))
@@ -28,3 +28,4 @@ print
 
 for name in names:
     print(name)
+
