@@ -14,8 +14,8 @@ while True:
         break
 
 while True:
-    minimumMoves = int(raw_input("Enter minimum number of two-side moves (usually 10): "))
-    if minimumMoves >= 0:
+    minimumAverageMoves = int(raw_input("Enter minimum average number of two-side moves (usually 10): "))
+    if minimumAverageMoves >= 0:
         break
 
 games = requests.get(
@@ -25,32 +25,49 @@ games = requests.get(
 ).json(cls=ndjson.Decoder)
 
 gamesPlayed = defaultdict(int)
-notCounted = defaultdict(list)
+movesPlayed = defaultdict(float)
 for game in games:
-    isShort = len(game['moves'].split()) < minimumMoves * 2
     for color in 'white', 'black':
-        if isShort and ('winner' not in game or game['winner'] != color):
-            notCounted['https://lichess.org/' + game['id']].append(color)
-            gamesPlayed[game['players'][color]['user']['name']] += 0
-        else:
-            gamesPlayed[game['players'][color]['user']['name']] += 1
+        player = game['players'][color]['user']['name']
+        gamesPlayed[player] += 1
+        movesPlayed[player] += len(game['moves'].split()) / 2.
 
-names = sorted(map(lambda (name, games): name,
-                   filter(lambda (name, games): games >= minimumGames, gamesPlayed.items())))
-
-totalNotCounted = sum(map(lambda (link, sides): len(sides), notCounted.items()))
+tooFewGames = []
+tooFewMoves = []
+ok = []
+for name in gamesPlayed:
+    if gamesPlayed[name] < minimumGames:
+        tooFewGames.append(name)
+    elif movesPlayed[name] < minimumAverageMoves * gamesPlayed[name]:
+        tooFewMoves.append(name)
+    else:
+        ok.append(name)
+tooFewGames.sort()
+tooFewMoves.sort()
+ok.sort()
 
 print
 print('Players played at least 1 game: ' + str(len(gamesPlayed)))
-print('Players meet criteria: ' + str(len(names)))
-print('Total games played: ' + str(len(games)))
-print('Not counted games: ' + str(totalNotCounted)
-      + (' (' + str(100 * totalNotCounted / (len(games) * 2)) + '%)' if len(games) > 0 else ''))
 print
 
-for p in sorted(notCounted.items()):
-    print(p[0] + ' ' + str(sorted(p[1])))
-print
+if len(tooFewGames) != 0:
+    print('=======================================================')
+    print('Players played too few games: ' + str(len(tooFewGames)))
+    for name in tooFewGames:
+        print(name + ' ' + str(gamesPlayed[name]))
+    print('=======================================================')
+    print
 
-for name in names:
+if len(tooFewMoves) != 0:
+    print('=======================================================')
+    print('Players played too few moves: ' + str(len(tooFewMoves)))
+    for name in tooFewMoves:
+        print(name + ' ' + str(1. * movesPlayed[name] / gamesPlayed[name]))
+    print('=======================================================')
+    print
+
+print('=======================================================')
+print('Players meet criteria: ' + str(len(ok)))
+
+for name in ok:
     print(name)
