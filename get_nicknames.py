@@ -3,20 +3,22 @@ import requests
 
 from collections import defaultdict
 
-while True:
-    tournamentId = raw_input("Enter tournament id: ")
-    if tournamentId != '':
-        break
+MILLISECONDS_IN_MINUTE = 60000
 
-while True:
-    minimumGames = int(raw_input("Enter positive minimum number of games (usually 8): "))
-    if minimumGames > 0:
-        break
 
-while True:
-    minimumAverageMoves = int(raw_input("Enter minimum average number of two-side moves (usually 10): "))
-    if minimumAverageMoves >= 0:
-        break
+def IDENTITY(x):
+    return x
+
+
+def readValue(message, mapper, checker):
+    while True:
+        result = mapper(raw_input(message))
+        if checker(result):
+            return result
+
+
+tournamentId = readValue('Enter tournament id: ', IDENTITY, lambda (x): x != '')
+minimumMinutes = readValue('Enter minimum number of minutes (usually 50): ', int, lambda (x): x >= 0)
 
 games = requests.get(
     'https://lichess.org/api/tournament/' + tournamentId + '/games',
@@ -24,50 +26,51 @@ games = requests.get(
     params={'tags': 'false'}
 ).json(cls=ndjson.Decoder)
 
-gamesPlayed = defaultdict(int)
-movesPlayed = defaultdict(float)
-for game in games:
-    for color in 'white', 'black':
-        player = game['players'][color]['user']['name']
-        gamesPlayed[player] += 1
-        movesPlayed[player] += len(game['moves'].split()) / 2.
 
-tooFewGames = []
-tooFewMoves = []
+def countPlayerStat(f):
+    result = defaultdict(int)
+    for game in games:
+        for color in 'white', 'black':
+            player = game['players'][color]['user']['name']
+            result[player] = f(result[player], game)
+    return result
+
+
+def countGamesPlayed():
+    return countPlayerStat(lambda old, _: old + 1)
+
+
+def countTimePlayedInMillis():
+    return countPlayerStat(lambda old, game: old + game['lastMoveAt'] - game['createdAt'])
+
+
+gamesPlayed = countGamesPlayed()
+timePlayed = countTimePlayedInMillis()
+
+tooFewMinutes = []
 ok = []
-for name in gamesPlayed:
-    if gamesPlayed[name] < minimumGames:
-        tooFewGames.append(name)
-    elif movesPlayed[name] < minimumAverageMoves * gamesPlayed[name]:
-        tooFewMoves.append(name)
+for name in timePlayed:
+    if timePlayed[name] < minimumMinutes * MILLISECONDS_IN_MINUTE:
+        tooFewMinutes.append(name)
     else:
         ok.append(name)
-tooFewGames.sort()
-tooFewMoves.sort()
+tooFewMinutes.sort(key=lambda (x): timePlayed[x], reverse=True)
 ok.sort()
 
 print
 print('Players played at least 1 game: ' + str(len(gamesPlayed)))
+print('============================')
 print
 
-if len(tooFewGames) != 0:
-    print('=======================================================')
-    print('Players played too few games: ' + str(len(tooFewGames)))
-    for name in tooFewGames:
-        print(name + ' ' + str(gamesPlayed[name]))
-    print('=======================================================')
+if len(tooFewMinutes) > 0:
+    print('Players played too few minutes: ' + str(len(tooFewMinutes)))
+    print('============================')
+    for name in tooFewMinutes:
+        print(name + ' minutes: ' + str((1. * timePlayed[name]) / MILLISECONDS_IN_MINUTE) + ' games: '
+              + str(gamesPlayed[name]))
     print
 
-if len(tooFewMoves) != 0:
-    print('=======================================================')
-    print('Players played too few moves: ' + str(len(tooFewMoves)))
-    for name in tooFewMoves:
-        print(name + ' ' + str(1. * movesPlayed[name] / gamesPlayed[name]))
-    print('=======================================================')
-    print
-
-print('=======================================================')
 print('Players meet criteria: ' + str(len(ok)))
-
+print('============================')
 for name in ok:
     print(name)
