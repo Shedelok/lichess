@@ -19,7 +19,7 @@ def readValue(message, mapper, checker):
 
 
 tournamentId = readValue('Enter tournament id: ', IDENTITY, lambda (x): x != '')
-minimumMinutes = readValue('Enter minimum number of minutes (usually 50): ', int, lambda (x): x >= 0)
+minimumMinutes = readValue('Enter minimum number of minutes (usually 60): ', int, lambda (x): x >= 0)
 
 games = requests.get(
     'https://lichess.org/api/tournament/' + tournamentId + '/games',
