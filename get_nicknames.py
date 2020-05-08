@@ -3,7 +3,6 @@ import requests
 
 from collections import defaultdict
 
-
 MILLISECONDS_IN_MINUTE = 60000
 
 
@@ -45,6 +44,14 @@ def countTimePlayedInMillis():
     return countPlayerStat(lambda old, game: old + game['lastMoveAt'] - game['createdAt'])
 
 
+def getFirstGameStart():
+    return countPlayerStat(lambda old, game: game['createdAt'] if old == 0 else min(old, game['createdAt']))
+
+
+def getLastGameEnd():
+    return countPlayerStat(lambda old, game: max(old, game['lastMoveAt']))
+
+
 gamesPlayed = countGamesPlayed()
 timePlayed = countTimePlayedInMillis()
 
@@ -64,11 +71,14 @@ print('============================')
 print
 
 if len(tooFewMinutes) > 0:
+    firstGameStart = getFirstGameStart()
+    lastGameEnd = getLastGameEnd()
     print('Players played too few minutes: ' + str(len(tooFewMinutes)))
     print('============================')
     for name in tooFewMinutes:
         print(name + ' minutes: ' + str((1. * timePlayed[name]) / MILLISECONDS_IN_MINUTE) + ' games: '
-              + str(gamesPlayed[name]))
+              + str(gamesPlayed[name]) + ' minutes with pauses: '
+              + str((1. * (lastGameEnd[name] - firstGameStart[name])) / MILLISECONDS_IN_MINUTE))
     print
 
 print('Players meet criteria: ' + str(len(ok)))
